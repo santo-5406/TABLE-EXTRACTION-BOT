@@ -10,6 +10,10 @@ A premium full-stack web application that allows users to extract tabular data f
 - **Modern UI**: Crafted with a royal blue dark theme, glassmorphism, and smooth animations.
 
 ---
+## Process Mapping
+
+<img width="751" height="521" alt="pm bot drawio" src="https://github.com/user-attachments/assets/ded20296-31d1-41a5-8500-8df41a623f88" />
+
 
 ## 🛠️ Tech Stack
 
@@ -83,4 +87,4 @@ The app will be available at: `http://localhost:3000`
 
 ---
 
-Built with ❤️ by Antigravity 🛸
+
