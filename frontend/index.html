@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Extractor AI | Premium Data Scraping</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (via CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        royal: {
+                            50: '#f0f4ff', 100: '#e0e9ff', 200: '#c1d2ff', 300: '#a2bcff', 
+                            400: '#83a5ff', 500: '#648eff', 600: '#2563eb', 700: '#1d4ed8', 
+                            800: '#1e40af', 900: '#1e3a8a', 950: '#172554',
+                        },
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- React & Libraries (via CDN) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- Mermaid JS for Diagramming -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#2563eb',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#1e40af',
+                lineColor: '#648eff',
+                secondaryColor: '#1e293b',
+                tertiaryColor: '#0f172a'
+            }
+        });
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background-color: #020617; color: #f1f5f9; }
+        .glass { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glow-on-hover:hover { box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); transition: all 0.3s ease-in-out; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+    </style>
+</head>
+<body class="selection:bg-royal-500/30 selection:text-royal-200 antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        function Icon({ name, size = 20, className = "" }) {
+            useEffect(() => {
+                lucide.createIcons();
+            }, []);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        }
+
+        function App() {
+            // State
+            const [url, setUrl] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [data, setData] = useState(null);
+            const [error, setError] = useState(null);
+            const [activeTableIdx, setActiveTableIdx] = useState(0);
+            const [downloadingFormat, setDownloadingFormat] = useState(null);
+
+            // Handlers
+            const handleExtract = async () => {
+                if (!url) return;
+                setIsLoading(true);
+                setError(null);
+                setData(null);
+                
+                try {
+                    // Note: In standalone, we point directly to the backend
+                    const response = await axios.post('http://localhost:8000/extract', { url });
+                    setData(response.data);
+                    if (response.data.tables.length > 0) {
+                        setActiveTableIdx(0);
+                    }
+                    setTimeout(() => lucide.createIcons(), 100);
+                } catch (err) {
+                    const msg = err.response?.data?.detail || 'Failed to connect to the backend server (ensure it is running on port 8000).';
+                    setError(typeof msg === 'string' ? msg : 'An error occurred during extraction.');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleDownload = (format) => {
+                if (!data) return;
+                setDownloadingFormat(format);
+                const downloadUrl = `http://localhost:8000/download?url=${encodeURIComponent(data.url)}&table_index=${activeTableIdx}&format=${format}`;
+                window.location.href = downloadUrl;
+                setTimeout(() => setDownloadingFormat(null), 1000);
+            };
+
+            const selectedTable = data?.tables[activeTableIdx];
+
+            return (
+                <div className="min-h-screen relative overflow-x-hidden">
+                    {/* Background Decor */}
+                    <div className="fixed inset-0 pointer-events-none -z-10">
+                        <div className="absolute top-0 -left-1/4 w-1/2 h-1/2 bg-royal-900/20 blur-[120px] rounded-full"></div>
+                        <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-blue-900/10 blur-[120px] rounded-full"></div>
+                    </div>
+
+                    <div className="max-w-6xl mx-auto px-4 py-12 md:py-24">
+                        {/* Header */}
+                        <div className="text-center mb-16 space-y-4">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-royal-500/30 bg-royal-500/10 text-royal-400 text-sm font-medium mb-2">
+                                <Icon name="check-circle-2" size={14} />
+                                <span>AI-Powered Extraction</span>
+                            </div>
+                            <h1 className="text-5xl md:text-7xl font-bold tracking-tight bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
+                                Table Extractor <span className="text-royal-600">AI</span>
+                            </h1>
+                            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+                                Instantly turn any website's tabular data into clean CSV or Excel files.
+                            </p>
+                        </div>
+
+                        {/* Input Section */}
+                        <div className="relative max-w-2xl mx-auto glass p-2 rounded-2xl border-royal-400/20 shadow-2xl mb-12 group transition-all duration-300">
+                            <div className="flex flex-col md:flex-row gap-2">
+                                <div className="relative flex-1">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-royal-400 transition-colors">
+                                        <Icon name="globe" />
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter website URL (e.g., wikipedia List of cities)" 
+                                        className="w-full bg-transparent border-none focus:ring-0 pl-12 pr-4 py-4 text-slate-200 placeholder:text-slate-600 outline-none"
+                                        value={url}
+                                        onChange={(e) => setUrl(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleExtract()}
+                                    />
+                                </div>
+                                <button 
+                                    onClick={handleExtract}
+                                    disabled={isLoading || !url}
+                                    className="bg-royal-600 hover:bg-royal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] active:scale-95"
+                                >
+                                    {isLoading ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="search" />}
+                                    <span>Extract</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Error State */}
+                        {error && (
+                            <div className="max-w-2xl mx-auto mb-8 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-start gap-3">
+                                <Icon name="alert-circle" className="shrink-0 mt-0.5" size={18} />
+                                <p className="text-sm font-medium">{error}</p>
+                            </div>
+                        )}
+
+                        {/* Results State */}
+                        {data && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+                                {data.warning && (
+                                    <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-sm flex gap-2 items-center">
+                                        <Icon name="alert-circle" size={14} /> {data.warning}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                                    {/* Sidebar: Table Selection */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider px-2">
+                                            Detected Tables ({data.table_count})
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {data.tables.map((tbl, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => { setActiveTableIdx(i); setTimeout(() => lucide.createIcons(), 10); }}
+                                                    className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${
+                                                        activeTableIdx === i 
+                                                            ? "bg-royal-600/20 border-royal-500 text-royal-200 shadow-lg shadow-royal-900/10" 
+                                                            : "bg-slate-900/40 border-white/5 text-slate-500 hover:border-white/10 hover:bg-slate-800/40"
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                                                            activeTableIdx === i ? "bg-royal-600 text-white" : "bg-slate-800 text-slate-600"
+                                                        }`}>
+                                                            {i + 1}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-sm truncate max-w-[120px]">{tbl.title}</p>
+                                                            <p className="text-[10px] opacity-60 font-medium tracking-tight uppercase">{tbl.row_count} rows • {tbl.col_count} cols</p>
+                                                        </div>
+                                                    </div>
+                                                    <Icon name="chevron-right" size={16} className={`transition-transform duration-300 ${activeTableIdx === i ? "text-royal-400" : "opacity-0 group-hover:opacity-100 -rotate-90"}`} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Main: Table Preview & Actions */}
+                                    <div className="lg:col-span-3 space-y-6">
+                                        {selectedTable ? (
+                                            <>
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div>
+                                                        <h2 className="text-2xl font-bold flex items-center gap-3">
+                                                            <Icon name="table" className="text-royal-500" />
+                                                            {selectedTable.title}
+                                                        </h2>
+                                                        <p className="text-slate-500 text-sm font-medium">Showing top {selectedTable.preview.length} rows preview</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => handleDownload('csv')}
+                                                            className="flex-1 md:flex-none border border-royal-500/30 hover:bg-royal-500/10 text-royal-300 font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95"
+                                                        >
+                                                            {downloadingFormat === 'csv' ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="download" />}
+                                                            CSV
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDownload('excel')}
+                                                            className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-900/20"
+                                                        >
+                                                            {downloadingFormat === 'excel' ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="file-spreadsheet" />}
+                                                            Excel
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="glass rounded-2xl overflow-hidden border-white/5 shadow-2xl">
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-left text-sm border-collapse">
+                                                            <thead>
+                                                                <tr className="bg-slate-800/80 border-b border-white/5">
+                                                                    {selectedTable.columns.map((col, i) => (
+                                                                        <th key={i} className="px-6 py-5 font-bold text-slate-200 whitespace-nowrap bg-slate-800/20">
+                                                                            {col}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-white/5">
+                                                                {selectedTable.preview.map((row, i) => (
+                                                                    <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                                                        {selectedTable.columns.map((col, j) => (
+                                                                            <td key={j} className="px-6 py-4 text-slate-400 group-hover:text-slate-200 truncate max-w-[200px]">
+                                                                                {row[col] || <span className="opacity-20 italic font-light">—</span>}
+                                                                            </td>
+                                                                        ))}
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="h-64 glass rounded-2xl flex flex-col items-center justify-center text-slate-500 space-y-4">
+                                                <Icon name="table" size={48} className="opacity-10" />
+                                                <p className="font-medium">Select a table to see preview</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Empty State */}
+                        {!data && !isLoading && (
+                            <div className="text-center py-20 pointer-events-none opacity-20">
+                                <div className="flex justify-center gap-12">
+                                    <Icon name="table" size={100} />
+                                    <Icon name="search" size={100} />
+                                    <Icon name="globe" size={100} />
+                                </div>
+                                <p className="mt-8 text-slate-400 font-bold text-xl">Enter a URL to begin extraction</p>
+                            </div>
+                        )}
+
+                        {/* Pictorial Flow Section */}
+                        <div className="mt-32 pt-20 border-t border-white/5">
+                            <div className="text-center mb-16">
+                                <h2 className="text-4xl font-bold bg-gradient-to-r from-royal-400 to-blue-400 bg-clip-text text-transparent mb-4">The Engineering Pipeline</h2>
+                                <p className="text-slate-500 max-w-xl mx-auto">
+                                    Journey of a single data cell from the web to your spreadsheet.
+                                </p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 relative">
+                                {/* Connector Line (Desktop) */}
+                                <div className="hidden lg:block absolute top-[40%] left-[10%] right-[10%] h-0.5 bg-gradient-to-r from-royal-600/0 via-royal-500/50 to-royal-600/0 -z-10"></div>
+                                
+                                <div className="flex flex-col items-center group">
+                                    <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                                        <Icon name="globe" className="text-royal-400" size={32} />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">URL Input</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Gateway</span>
+                                </div>
+                                
+                                <div className="flex flex-col items-center group">
+                                    <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                                        <Icon name="zap" className="text-amber-400" size={32} />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">FastAPI</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Intelligence</span>
+                                </div>
+                                
+                                <div className="flex flex-col items-center group">
+                                    <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                                        <Icon name="search" className="text-royal-300" size={32} />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">BS4 Engine</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">DOM Scraping</span>
+                                </div>
+                                
+                                <div className="flex flex-col items-center group">
+                                    <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                                        <Icon name="brush" className="text-pink-400" size={32} />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">Sanitization</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Noise Reduction</span>
+                                </div>
+                                
+                                <div className="flex flex-col items-center group">
+                                    <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                                        <Icon name="file-spreadsheet" className="text-emerald-400" size={32} />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">Pandas Calc</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Structuring</span>
+                                </div>
+                                
+                                <div className="flex flex-col items-center group">
+                                    <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                                        <Icon name="download-cloud" className="text-royal-200" size={32} />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">Final File</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">CSV / XLSX</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Architecture Section */}
+                        <div className="mt-32 pt-20 border-t border-white/5">
+                            <div className="text-center mb-12">
+                                <h2 className="text-3xl font-bold mb-4">System Architecture</h2>
+                                <p className="text-slate-500 max-w-xl mx-auto">
+                                    A peak under the hood: How Table Extractor AI handles your data from URL to CSV.
+                                </p>
+                            </div>
+                            <div className="glass p-8 rounded-3xl overflow-hidden border-white/5 shadow-inner">
+                                <div className="mermaid flex justify-center py-10 overflow-x-auto">
+                                    {`
+                                    graph TD
+                                        A[User Input/URL] -->|HTTP POST| B[FastAPI Gateway]
+                                        B --> C[Scraping Engine]
+                                        C -->|HTML Stream| D[BeautifulSoup Parser]
+                                        D --> E[Data Sanitization]
+                                        E -->|Structured Data| F[Pandas Cleanup]
+                                        F -->|JSON Response| G[Frontend Preview]
+                                        G -->|User Selects| H[Binary Export API]
+                                        H -->|Streaming Response| I[CSV/Excel Download]
+
+                                        subgraph "Frontend Layer"
+                                            A
+                                            G
+                                            I
+                                        end
+
+                                        subgraph "Intelligence Backend"
+                                            B
+                                            C
+                                            D
+                                            E
+                                            F
+                                            H
+                                        end
+
+                                        style A fill:#1e3a8a,stroke:#2563eb,stroke-width:2px,color:#fff
+                                        style G fill:#1e3a8a,stroke:#2563eb,stroke-width:2px,color:#fff
+                                        style I fill:#059669,stroke:#10b981,stroke-width:2px,color:#fff
+                                        style B fill:#1e293b,stroke:#334155,color:#cbd5e1
+                                        style F fill:#1e293b,stroke:#334155,color:#cbd5e1
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <footer className="border-t border-white/5 py-12 mt-20">
+                        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-royal-600 flex items-center justify-center font-bold text-white shadow-lg shadow-royal-900/40">T</div>
+                                <span className="font-bold tracking-tight text-white text-lg">TableExtractor AI</span>
+                            </div>
+                            <div className="text-slate-500 text-sm font-medium">
+                                Pure Performance • Handcrafted by Antigravity
+                            </div>
+                            <div className="flex items-center gap-8 text-slate-400 font-medium">
+                                <a href="#" className="hover:text-white transition-colors flex items-center gap-2">
+                                    <Icon name="github" size={18} /> Code
+                                </a>
+                                <a href="#" className="hover:text-white transition-colors flex items-center gap-2 text-royal-400">
+                                    <Icon name="external-link" size={18} /> Live Demo
+                                </a>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
